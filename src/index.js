@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
 const app = express();
 
 // Middleware
@@ -30,8 +32,36 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server is running' });
+  res.json({ 
+    status: 'ok', 
+    message: 'Server is running',
+    port: PORT,
+    timestamp: new Date().toISOString()
+  });
 });
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Welcome to TH Sport API',
+    version: '1.0.0',
+    documentation: `http://localhost:${PORT}/api-docs`
+  });
+});
+
+// Swagger Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'TH Sport API Documentation',
+  swaggerOptions: {
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    docExpansion: 'none',
+    filter: true,
+    showExtensions: true,
+    showCommonExtensions: true
+  }
+}));
 
 // Route imports
 app.use('/api/auth', require('./routes/auth'));
@@ -58,4 +88,6 @@ app.use((req, res) => {
 // Start Server
 app.listen(PORT, () => {
   console.log(`✓ Server running on http://localhost:${PORT}`);
+  console.log(`✓ API Documentation available at http://localhost:${PORT}/api-docs`);
+  console.log(`✓ MongoDB connected to ${MONGO_URI}`);
 });

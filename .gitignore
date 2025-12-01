@@ -33,3 +33,6 @@ build/
 tmp/
 temp/
 *.tmp
+API_TEST_EXAMPLES.md
+drop-db.js
+seed.js
