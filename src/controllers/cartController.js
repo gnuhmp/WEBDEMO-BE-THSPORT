@@ -1,0 +1,127 @@
+const Cart = require('../models/Cart');
+const Product = require('../models/Product');
+
+exports.getCart = async (req, res) => {
+  try {
+    let cart = await Cart.findOne({ user: req.user.id }).populate('items.product');
+    if (!cart) {
+      cart = new Cart({ user: req.user.id, items: [] });
+      await cart.save();
+    }
+    res.json(cart);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+exports.addToCart = async (req, res) => {
+  try {
+    const { productId, quantity = 1 } = req.body;
+
+    if (!productId || quantity < 1) {
+      return res.status(400).json({ error: 'ProductId và quantity hợp lệ là bắt buộc' });
+    }
+
+    // Check product exists
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    let cart = await Cart.findOne({ user: req.user.id });
+    if (!cart) {
+      cart = new Cart({ user: req.user.id, items: [] });
+    }
+
+    // Check if product already in cart
+    const itemIndex = cart.items.findIndex(i => i.product.toString() === productId);
+    if (itemIndex > -1) {
+      cart.items[itemIndex].quantity += quantity;
+      cart.items[itemIndex].price = product.price; // Cập nhật giá mới nhất
+    } else {
+      cart.items.push({ 
+        product: productId, 
+        quantity,
+        price: product.price,
+        imageUrl: product.images && product.images.length > 0 ? product.images[0] : null
+      });
+    }
+
+    cart.updatedAt = new Date();
+    await cart.save();
+    await cart.populate('items.product');
+    
+    res.json(cart);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+exports.updateCartItem = async (req, res) => {
+  try {
+    const { quantity } = req.body;
+    const { itemId } = req.params;
+
+    if (quantity < 1) {
+      return res.status(400).json({ error: 'Số lượng phải lớn hơn 0' });
+    }
+
+    let cart = await Cart.findOne({ user: req.user.id });
+    if (!cart) {
+      return res.status(404).json({ error: 'Cart not found' });
+    }
+
+    // Find item in cart using _id
+    const item = cart.items.id(itemId);
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found in cart' });
+    }
+
+    item.quantity = quantity;
+    cart.updatedAt = new Date();
+    await cart.save();
+    await cart.populate('items.product');
+    
+    res.json(cart);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+exports.removeCartItem = async (req, res) => {
+  try {
+    const { itemId } = req.params;
+
+    let cart = await Cart.findOne({ user: req.user.id });
+    if (!cart) {
+      return res.status(404).json({ error: 'Cart not found' });
+    }
+
+    // Remove item from cart
+    cart.items = cart.items.filter(i => i._id.toString() !== itemId);
+    cart.updatedAt = new Date();
+    await cart.save();
+    await cart.populate('items.product');
+    
+    res.json(cart);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+exports.clearCart = async (req, res) => {
+  try {
+    let cart = await Cart.findOne({ user: req.user.id });
+    if (!cart) {
+      return res.status(404).json({ error: 'Cart not found' });
+    }
+
+    cart.items = [];
+    cart.updatedAt = new Date();
+    await cart.save();
+    
+    res.json(cart);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
